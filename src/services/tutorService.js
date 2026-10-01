@@ -110,13 +110,20 @@ export async function updateTutor(id, updates) {
     if (updates[key] !== undefined) payload[key] = updates[key];
   }
 
+  const existing = await TutorModel.findById(id);
+  if (!existing) return null;
+
   if (payload.email) {
     payload.email = payload.email.toLowerCase().trim();
-    const [existingTutor, existingUser] = await Promise.all([
-      TutorModel.findOne({ email: payload.email, _id: { $ne: id } }),
-      UserModel.findOne({ email: payload.email }),
-    ]);
-    if (existingTutor || existingUser) return "duplicate_email";
+
+    // Only check for duplicates if the email is actually changing
+    if (payload.email !== existing.email) {
+      const [existingTutor, existingUser] = await Promise.all([
+        TutorModel.findOne({ email: payload.email, _id: { $ne: id } }),
+        UserModel.findOne({ email: payload.email }),
+      ]);
+      if (existingTutor || existingUser) return "duplicate_email";
+    }
   }
 
   const session = await mongoose.startSession();
@@ -124,10 +131,7 @@ export async function updateTutor(id, updates) {
     let tutorDoc;
 
     await session.withTransaction(async () => {
-      const existingTutorDoc = await TutorModel.findById(id, null, { session });
-      if (!existingTutorDoc) return;
-
-      const originalEmail = existingTutorDoc.email;
+      const originalEmail = existing.email;
 
       tutorDoc = await TutorModel.findByIdAndUpdate(id, payload, {
         new: true,
@@ -135,10 +139,13 @@ export async function updateTutor(id, updates) {
         session,
       });
 
-      if (tutorDoc && (payload.name || payload.email)) {
+      const nameChanged = payload.name && payload.name !== existing.name;
+      const emailChanged = payload.email && payload.email !== originalEmail;
+
+      if (tutorDoc && (nameChanged || emailChanged)) {
         const userUpdates = {};
-        if (payload.name) userUpdates.name = payload.name;
-        if (payload.email) userUpdates.email = payload.email;
+        if (nameChanged) userUpdates.name = payload.name;
+        if (emailChanged) userUpdates.email = payload.email;
 
         const updatedUser = await UserModel.findOneAndUpdate(
           { email: originalEmail, role: "tutor" },
@@ -159,7 +166,6 @@ export async function updateTutor(id, updates) {
     session.endSession();
   }
 }
-
 export async function deleteTutor(id) {
   const session = await mongoose.startSession();
   try {
