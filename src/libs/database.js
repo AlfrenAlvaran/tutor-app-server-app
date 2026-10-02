@@ -1,7 +1,12 @@
 import mongoose from "mongoose";
 import { ENV } from "./environments.js";
+import dns from "node:dns";
 
 const uri = ENV.mongoose;
+
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
+
 
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 3000;
@@ -10,7 +15,6 @@ const CONNECT_OPTIONS = {
   serverSelectionTimeoutMS: 10000,
   autoIndex: ENV.nodeEnv !== "production",
 };
-
 
 const redactUri = (rawUri) => rawUri.replace(/\/\/[^@]+@/, "//");
 
@@ -62,7 +66,7 @@ async function connect(retries = MAX_RETRIES) {
       console.log(
         `[db] retrying in ${RETRY_DELAY_MS}ms... (${retries} attempt${
           retries === 1 ? "" : "s"
-        } left)`
+        } left)`,
       );
       await sleep(RETRY_DELAY_MS);
       isConnecting = false;

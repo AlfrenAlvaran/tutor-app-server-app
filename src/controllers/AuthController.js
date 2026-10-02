@@ -4,6 +4,7 @@ import TutorModel from "../models/TutorModel.js";
 import { createAdminSendOTP, verifyOtp } from "../services/OtpService.js";
 import { cookieOptions, signToken } from "../utils/token.js";
 import { signOtpToken, verifyOtpToken } from "../utils/otpToken.js";
+import path from "node:path";
 
 async function sanitizeUser(user) {
   const base = {
@@ -20,7 +21,9 @@ async function sanitizeUser(user) {
   // tutor account before their profile is created), tutorId comes back
   // null rather than throwing.
   if (user.role === "tutor") {
-    const tutorProfile = await TutorModel.findOne({ email: user.email }).select("_id");
+    const tutorProfile = await TutorModel.findOne({ email: user.email }).select(
+      "_id",
+    );
     base.tutorId = tutorProfile?._id ?? null;
   }
 
@@ -117,7 +120,10 @@ export async function logout(req, res) {
     httpOnly: true,
     sameSite: "strict",
     secure: ENV.nodeEnv === "production",
+    path: "/", // match whatever you used when setting the cookie
   });
+
+  return res.status(200).json({ message: "Logged out" });
 }
 
 export async function verify(req, res, next) {
